@@ -43,13 +43,12 @@ These route and terminal layers are schematic. They are intended to tell a more 
 
 ## Architecture
 
+Generic globe code (viewer, camera, gestures, HUD, compass, culling) lives in **[foss-earth](https://github.com/felipegalind0/foss-earth)** and is pulled in as a dependency. This repo contains only the oil-specific layer:
+
 ```
 src/
-├── main.ts                          # App entry — viewer, gestures, dataset switching
-├── culling.ts                       # Hemisphere culling (dot-product visibility test)
-├── mathUtils.ts                     # Pure math helpers for gesture classification and camera control
-├── mathUtils.test.ts                # Unit tests for mathUtils (vitest)
-├── style.css                        # UI styles
+├── main.ts                          # App entry — creates globe, registers oil layer, wires UI
+├── style.css                        # Oil-specific UI styles (data panel)
 ├── data/
 │   ├── tradeFlows.ts                # AUTO-GENERATED — 468 bilateral crude oil flows
 │   ├── ports.ts                     # Editable port catalog, alternate terminals, source groups
@@ -58,7 +57,6 @@ src/
 │   ├── regions.ts                   # 10 regions for color grouping
 │   └── seaRoutes.ts                 # Scenario-aware maritime corridor routing
 └── visualization/
-    ├── orbitCompass.ts              # 3D cardinal-direction compass anchored to the globe
     ├── regionSpheres.ts             # Country spheres sized by trade volume
     └── seaLanes.ts                  # Maritime and pipeline route rendering
 ```
@@ -68,11 +66,9 @@ src/
 - **Trade routing**: Dijkstra on a logistics-aware maritime corridor graph, with edge costs based on corridor type, chokepoint penalties, and canal delays. A separate editable pipeline layer handles obvious overland cases such as Canada→United States, Russia→China, Kazakhstan→China, and short refinery corridors in Northwest Europe.
 - **Corridor geometry**: Key chokepoints and coastal approaches now use authored segment geometry for Hormuz, Suez, Gibraltar, the English Channel, Danish Straits, Bosphorus, Malacca, Panama, the Cape route, and several Atlantic/African coastal legs.
 - **Scenario controls**: The UI can rebuild routes for Baseline, Suez Closed, Panama Constrained, and Hormuz High Risk cases. These scenarios change graph costs or closures and trigger actual rerouting.
-- **Hemisphere culling**: Entities on the far side of the globe are hidden each frame via a dot-product test (camera normal · entity normal). Zero-allocation per frame using scratch vectors.
 - **Rendering strategy**: Lanes are rendered as persistent corridors only. The particle animation path was removed to reduce per-frame GPU and CPU work.
 - **Country spheres**: Sized by `log1p(totalTradeVolume)`, colored by region with warm/cool tinting based on net exporter/importer status.
-- **Orbit compass**: Cardinal-direction axes and labels rendered around the camera target, with dynamic radius scaling based on zoom distance.
-- **Gesture handling**: Trackpad-aware (distinguishes two-finger swipe from mouse wheel), Safari `GestureEvent` support, touchscreen pointer fallback. Gesture classification and angle math live in `mathUtils.ts`.
+- **Globe features** (hemisphere culling, gesture handling, orbit compass, camera HUD) are provided by [foss-earth](https://github.com/felipegalind0/foss-earth).
 
 ## Methods
 
@@ -140,7 +136,8 @@ The UI dropdown lets you filter flows:
 
 ## Stack
 
-- **Cesium.js** 1.139 — 3D globe rendering
+- **[foss-earth](https://github.com/felipegalind0/foss-earth)** — Generic 3D globe (Cesium.js, camera, gestures, HUD)
+- **Cesium.js** 1.139 — 3D globe rendering (via foss-earth)
 - **Vite** 7.3 + **TypeScript** 5.9 — build tooling
 - **gh-pages** — GitHub Pages deployment
 - **Python 3** — data processing scripts
