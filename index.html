@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth Oil Viz — FOSS Earth</title>
+  </head>
+  <body>
+    <div id="cesiumContainer"></div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading oil trade data…</p>
+    </div>
+
+    <!-- Dataset Selector Panel -->
+    <div id="dataPanel" class="data-panel is-minimized">
+      <button
+        id="dataPanelToggle"
+        class="data-panel-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="dataPanelBody"
+      >
+        Show Data Overlay
+      </button>
+      <div id="dataPanelBody" class="data-panel-body">
+        <label class="data-panel-label" for="datasetSelect">Dataset</label>
+        <select id="datasetSelect" class="data-panel-select">
+          <option value="all">Crude Oil — All Flows (468)</option>
+          <option value="top50">Crude Oil — Top 50 Flows</option>
+          <option value="top30">Crude Oil — Top 30 Flows</option>
+          <option value="middle_east">Middle East Exports</option>
+          <option value="americas">Americas Exports</option>
+          <option value="africa">Africa Exports</option>
+          <option value="europe">Europe Exports</option>
+          <option value="russia_cis">Russia &amp; CIS Exports</option>
+        </select>
+        <label class="data-panel-label" for="routeScenarioSelect">Routing Scenario</label>
+        <select id="routeScenarioSelect" class="data-panel-select">
+          <option value="baseline">Baseline</option>
+          <option value="suez_closed">Suez Closed</option>
+          <option value="panama_constrained">Panama Constrained</option>
+          <option value="hormuz_high_risk">Hormuz High Risk</option>
+        </select>
+        <div class="data-panel-scenario">
+          <span class="data-panel-source-heading">Scenario Effect</span>
+          <span id="routeScenarioDescription">Normal corridor costs with all major chokepoints open.</span>
+        </div>
+        <div class="data-panel-source">
+          <span class="data-panel-source-heading">Source</span>
+          <span id="dataSourceText">Harvard Atlas of Economic Complexity / UN Comtrade — SITC 3330 crude petroleum (2023)</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="compassWidget" class="camera-hud-panel">
+      <button id="cameraResetButton" class="camera-reset-button" type="button">
+        North Up
+      </button>
+      <div id="cameraHud" class="camera-hud"></div>
+    </div>
+
+    <!-- Fallback warning modal (hidden by default, shown via JS) -->
+    <div id="fallbackModal" class="modal-overlay" style="display: none">
+      <div class="modal-card">
+        <h2>Fallback Mode</h2>
+        <p>
+          Viewing in <strong>Fallback Mode</strong> (OpenStreetMap).<br />
+          To view the Google 3D Earth, append
+          <code>?key=YOUR_GOOGLE_API_KEY</code> to the URL.
+        </p>
+        <button id="dismissModal">Dismiss</button>
+      </div>
+    </div>
+
+    <!-- Controls help button -->
+    <button id="helpButton" class="help-button" type="button" title="Controls help">?</button>
+
+    <!-- Controls help modal -->
+    <div id="helpModal" class="modal-overlay" style="display: none">
+      <div class="modal-card help-modal-card">
+        <h2>Controls</h2>
+
+        <div class="help-axes">
+          <!-- Pan axis -->
+          <div class="help-axis">
+            <div class="help-axis-title">Pan</div>
+            <div class="help-axis-triggers">
+              <span class="help-trigger">Left drag</span>
+              <span class="help-trigger">2-finger swipe</span>
+              <span class="help-trigger">1-finger <small>(mobile)</small></span>
+            </div>
+            <div class="help-cross">
+              <div class="help-cross-up">
+                <span class="help-arrow">▲</span>
+                <span class="help-dir-label">North</span>
+              </div>
+              <div class="help-cross-left">
+                <span class="help-dir-label">West</span>
+                <span class="help-arrow">◄</span>
+              </div>
+              <div class="help-cross-right">
+                <span class="help-arrow">►</span>
+                <span class="help-dir-label">East</span>
+              </div>
+              <div class="help-cross-down">
+                <span class="help-arrow">▼</span>
+                <span class="help-dir-label">South</span>
+              </div>
+            </div>
+            <div class="help-axis-note">Changes Lat / Lon</div>
+          </div>
+
+          <!-- Orbit axis -->
+          <div class="help-axis">
+            <div class="help-axis-title">Orbit</div>
+            <div class="help-axis-triggers">
+              <span class="help-trigger">Right drag</span>
+              <span class="help-trigger">⇧ + 2-finger swipe</span>
+              <span class="help-trigger">2-finger <small>(mobile)</small></span>
+            </div>
+            <div class="help-cross">
+              <div class="help-cross-up">
+                <span class="help-arrow">▲</span>
+                <span class="help-dir-label">Tilt Up</span>
+              </div>
+              <div class="help-cross-left">
+                <span class="help-dir-label">Turn Left</span>
+                <span class="help-arrow">◄</span>
+              </div>
+              <div class="help-cross-right">
+                <span class="help-arrow">►</span>
+                <span class="help-dir-label">Turn Right</span>
+              </div>
+              <div class="help-cross-down">
+                <span class="help-arrow">▼</span>
+                <span class="help-dir-label">Tilt Down</span>
+              </div>
+            </div>
+            <div class="help-axis-note">Changes Heading / Pitch</div>
+          </div>
+        </div>
+
+        <div class="help-zoom">Zoom &mdash; Scroll wheel &middot; Pinch</div>
+
+        <button id="dismissHelp">Got it</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

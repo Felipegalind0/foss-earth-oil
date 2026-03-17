@@ -1,0 +1,25 @@
+{
+  "name": "foss-earth-oil",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && cp -r dist/foss-earth-oil/cesium dist/cesium",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-cesium": "^1.2.23",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "cesium": "^1.139.1",
+    "foss-earth": "github:felipegalind0/foss-earth"
+  }
+}
