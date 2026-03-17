@@ -106,6 +106,15 @@ npm run build        # production build to dist/
 npm run deploy       # build + deploy to GitHub Pages
 ```
 
+### Updating foss-earth
+
+To pull in the latest upstream changes from [foss-earth](https://github.com/felipegalind0/foss-earth):
+
+```bash
+npm install foss-earth@github:felipegalind0/foss-earth
+npm run build        # check for any breaking API changes
+```
+
 ### Google 3D Tiles (optional)
 
 Append `?key=YOUR_GOOGLE_MAPS_API_KEY` to the URL for [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles). Without a key, falls back to OpenStreetMap.
