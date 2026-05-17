@@ -103,8 +103,11 @@ The intended workflow is:
 npm install
 npm run dev          # dev server at localhost:5173
 npm run build        # production build to dist/
-npm run deploy       # build + deploy to GitHub Pages
+npm run deploy       # build + push dist/ to gh-pages branch → GitHub Pages
 ```
+
+> Deployment uses the `gh-pages` npm package to push `dist/` to the `gh-pages` branch.
+> GitHub Pages is configured to serve from that branch. No GitHub Actions workflow is involved.
 
 ### Updating foss-earth
 
