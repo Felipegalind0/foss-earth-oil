@@ -1,33 +1,22 @@
 // ─── Country Sphere Visualization ───────────────────────────────────
-// Creates sized/colored spheres for each oil-trading country on the Cesium globe.
+// Creates sized/colored spheres for each oil-trading country on the Babylon globe.
 
-import * as Cesium from "cesium";
+import { Color3, MeshBuilder, StandardMaterial, Vector3 } from "@babylonjs/core";
+import type { AbstractMesh, Scene } from "@babylonjs/core";
+import { DEG_TO_RAD, geodeticToEcef } from "foss-earth/cameraMath";
 import { COUNTRIES } from "../data/countries";
 import { totalExports, totalImports } from "../data/tradeFlows";
 import { type Region, REGIONS } from "../data/regions";
 
-/** Minimum sphere radius in metres */
-const BASE_RADIUS = 35_000;
-/** Scaling factor for log(volume) */
-const LOG_SCALE = 18_000;
-
-function createImporterMarkerSvg(color: Cesium.Color): string {
-  const stroke = color.toCssColorString();
-  const outline = "rgba(0, 0, 0, 0.45)";
-  return `data:image/svg+xml;utf8,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-      <line x1="22" y1="22" x2="74" y2="74" stroke="${outline}" stroke-width="22" stroke-linecap="round"/>
-      <line x1="74" y1="22" x2="22" y2="74" stroke="${outline}" stroke-width="22" stroke-linecap="round"/>
-      <line x1="22" y1="22" x2="74" y2="74" stroke="${stroke}" stroke-width="14" stroke-linecap="round"/>
-      <line x1="74" y1="22" x2="22" y2="74" stroke="${stroke}" stroke-width="14" stroke-linecap="round"/>
-    </svg>`,
-  )}`;
-}
+/** Minimum marker radius in metres. Kept intentionally visible at whole-globe zoom. */
+const BASE_RADIUS = 160_000;
+/** Scaling factor for log(volume). */
+const LOG_SCALE = 70_000;
 
 export function createCountrySpheres(
-  viewer: Cesium.Viewer,
-): Cesium.Entity[] {
-  const entities: Cesium.Entity[] = [];
+  scene: Scene,
+): AbstractMesh[] {
+  const meshes: AbstractMesh[] = [];
 
   // Precompute region color map
   const regionMap = new Map<string, Region>();
@@ -39,7 +28,6 @@ export function createCountrySpheres(
     const total = exp + imp;
     if (total === 0) continue;
 
-    // Radius: base + log-scaled volume
     const radius = BASE_RADIUS + Math.log1p(total / 1e9) * LOG_SCALE;
 
     // Color: net exporters → warm, net importers → cool
@@ -51,56 +39,36 @@ export function createCountrySpheres(
     const tintR = ratio >= 0 ? Math.min(255, rr + 60 * ratio) : Math.max(0, rr - 40);
     const tintG = ratio >= 0 ? Math.max(0, gg - 30 * ratio) : Math.min(255, gg + 30);
     const tintB = ratio >= 0 ? Math.max(0, bb - 50 * ratio) : Math.min(255, bb + 60);
-    const color = new Cesium.Color(tintR / 255, tintG / 255, tintB / 255, 0.65);
+    const color = new Color3(tintR / 255, tintG / 255, tintB / 255);
     const isNetImporter = imp > exp;
-    const importerMarkerSize = Cesium.Math.clamp(
-      18 + Math.log1p(total / 1e9) * 5,
-      18,
-      42,
+
+    const material = new StandardMaterial(`oil-country-${country.code}-material`, scene);
+    material.diffuseColor = color;
+    material.emissiveColor = color;
+    material.specularColor = Color3.Black();
+    material.disableLighting = true;
+    material.alpha = 0.3;
+
+    const mesh = MeshBuilder.CreateSphere(
+      `oil-country-${country.code}`,
+      { diameter: radius * (isNetImporter ? 2.5 : 3), segments: 24 },
+      scene,
     );
+    const position = geodeticToEcef(country.lat * DEG_TO_RAD, country.lon * DEG_TO_RAD, 0);
+    mesh.position = new Vector3(position.x, position.y, position.z);
+    mesh.material = material;
+    mesh.alwaysSelectAsActiveMesh = true;
+    mesh.renderingGroupId = 1;
+    mesh.metadata = {
+      countryCode: country.code,
+      countryName: country.name,
+      portName: country.portName,
+      exportsUsd: exp,
+      importsUsd: imp,
+    };
 
-    // Format volume for label
-    const expB = (exp / 1e9).toFixed(0);
-    const impB = (imp / 1e9).toFixed(0);
-
-    const entity = viewer.entities.add({
-      name: country.name,
-      position: Cesium.Cartesian3.fromDegrees(country.lon, country.lat, radius),
-      ellipsoid: isNetImporter
-        ? undefined
-        : {
-          radii: new Cesium.Cartesian3(radius, radius, radius),
-          material: color,
-        },
-      billboard: isNetImporter
-        ? {
-          image: createImporterMarkerSvg(color),
-          width: importerMarkerSize,
-          height: importerMarkerSize,
-          verticalOrigin: Cesium.VerticalOrigin.CENTER,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 1.5e7, 0.35),
-        }
-        : undefined,
-      label: {
-        text: country.code,
-        font: "bold 12px sans-serif",
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        outlineWidth: 2,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, isNetImporter ? -26 : -14),
-        fillColor: Cesium.Color.WHITE,
-        outlineColor: Cesium.Color.BLACK,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        scaleByDistance: new Cesium.NearFarScalar(5e5, 1.0, 1.5e7, 0.3),
-      },
-      description: `<b>${country.name}</b> (${country.portName})<br/>` +
-        `Exports: $${expB}B / Imports: $${impB}B<br/>` +
-        `Port catalog entries: ${country.portCount}`,
-    });
-
-    entities.push(entity);
+    meshes.push(mesh);
   }
 
-  return entities;
+  return meshes;
 }

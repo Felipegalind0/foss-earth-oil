@@ -43,7 +43,7 @@ These route and terminal layers are schematic. They are intended to tell a more 
 
 ## Architecture
 
-Generic globe code (viewer, camera, gestures, HUD, compass, culling) lives in **[foss-earth](https://github.com/felipegalind0/foss-earth)** and is pulled in as a dependency. This repo contains only the oil-specific layer:
+Generic globe code (Babylon runtime, camera, gestures, HUD, compass, culling) lives in **[foss-earth](https://github.com/felipegalind0/foss-earth)** and is pulled in as a dependency. This repo contains only the oil-specific layer:
 
 ```
 src/
@@ -111,13 +111,13 @@ npm run deploy       # build + deploy to GitHub Pages
 To pull in the latest upstream changes from [foss-earth](https://github.com/felipegalind0/foss-earth):
 
 ```bash
-npm install foss-earth@github:felipegalind0/foss-earth
+npm install
 npm run build        # check for any breaking API changes
 ```
 
 ### Google 3D Tiles (optional)
 
-Append `?key=YOUR_GOOGLE_MAPS_API_KEY` to the URL for [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles). Without a key, falls back to OpenStreetMap.
+Append `?key=YOUR_GOOGLE_MAPS_API_KEY` to the URL for [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles). Without a key, the shared globe falls back to its lightweight fallback scene.
 
 ## Dataset Selector
 
@@ -145,8 +145,8 @@ The UI dropdown lets you filter flows:
 
 ## Stack
 
-- **[foss-earth](https://github.com/felipegalind0/foss-earth)** — Generic 3D globe (Cesium.js, camera, gestures, HUD)
-- **Cesium.js** 1.139 — 3D globe rendering (via foss-earth)
+- **[foss-earth](https://github.com/felipegalind0/foss-earth)** — Generic Babylon.js globe, camera, gestures, HUD, compass, culling, and Google 3D Tiles runtime
+- **Babylon.js** 8 — 3D rendering and oil overlay primitives
 - **Vite** 7.3 + **TypeScript** 5.9 — build tooling
 - **gh-pages** — GitHub Pages deployment
 - **Python 3** — data processing scripts

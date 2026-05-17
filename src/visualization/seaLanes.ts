@@ -1,7 +1,9 @@
 // ─── Sea Lane Polyline Visualization ────────────────────────────────
 // Renders smooth polylines along computed sea routes with width ∝ trade volume.
 
-import * as Cesium from "cesium";
+import { Color3, MeshBuilder, Vector3 } from "@babylonjs/core";
+import type { LinesMesh, Scene } from "@babylonjs/core";
+import { DEG_TO_RAD, geodeticToEcef } from "foss-earth/cameraMath";
 import { getCountry } from "../data/countries";
 import { COUNTRY_TO_REGION, REGIONS } from "../data/regions";
 import { findTradeRoute } from "../data/seaRoutes";
@@ -9,15 +11,11 @@ import type { RouteMode } from "../data/seaRoutes";
 import type { RouteScenarioId } from "../data/seaRoutes";
 import type { TradeFlow } from "../data/tradeFlows";
 
-/** Minimum polyline width in pixels */
-const MIN_WIDTH = 1.0;
-/** Maximum polyline width in pixels */
-const MAX_WIDTH = 10;
 /** Altitude of sea lane polylines above surface (metres) */
 const LANE_ALTITUDE = 12_000;
 
 export interface RenderedLane {
-  entity: Cesium.Entity;
+  mesh: LinesMesh;
   flow: TradeFlow;
   mode: RouteMode;
   totalCostHours: number;
@@ -27,14 +25,11 @@ export interface RenderedLane {
 }
 
 export function createSeaLanes(
-  viewer: Cesium.Viewer,
+  scene: Scene,
   flows: TradeFlow[],
   scenarioId: RouteScenarioId,
 ): RenderedLane[] {
   const lanes: RenderedLane[] = [];
-
-  // Max flow value for width normalization
-  const maxValue = Math.max(...flows.map((f) => f.value), 1);
 
   // Region color lookup
   const regionColorMap = new Map<string, [number, number, number]>();
@@ -64,54 +59,33 @@ export function createSeaLanes(
     if (!route || route.points.length < 2) continue;
     const points = route.points;
 
-    // Build Cesium positions: [lon, lat, alt, ...]
-    const degreesAndHeights: number[] = [];
-    for (const [lat, lon] of points) {
-      degreesAndHeights.push(lon, lat, LANE_ALTITUDE);
-    }
-
-    // Width proportional to sqrt of normalized value
-    const normalizedValue = flow.value / maxValue;
-    const width = MIN_WIDTH + (MAX_WIDTH - MIN_WIDTH) * Math.sqrt(normalizedValue);
+    const positions = points.map(([lat, lon]) => {
+      const position = geodeticToEcef(lat * DEG_TO_RAD, lon * DEG_TO_RAD, LANE_ALTITUDE);
+      return new Vector3(position.x, position.y, position.z);
+    });
 
     // Color based on source region
     const regionId = COUNTRY_TO_REGION.get(flow.from) ?? "africa";
     const [r, g, b] = regionColorMap.get(regionId) ?? [180, 180, 180];
-    const baseColor = new Cesium.Color(r / 255, g / 255, b / 255, route.mode === "pipeline" ? 0.7 : 0.45);
-    const material = route.mode === "pipeline"
-      ? new Cesium.PolylineDashMaterialProperty({
-        color: baseColor,
-        dashLength: 16,
-      })
-      : new Cesium.PolylineGlowMaterialProperty({
-        glowPower: 0.2,
-        color: baseColor,
-      });
-
-    const displayWidth = route.mode === "pipeline"
-      ? Math.max(1.5, width * 0.75)
-      : width;
-
-    const transitDays = route.totalCostHours / 24;
-    const routeLabel = route.mode === "pipeline" ? "Pipeline corridor" : "Maritime corridor";
-
-    const entity = viewer.entities.add({
-      name: `${fromCountry.name} → ${toCountry.name}`,
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArrayHeights(degreesAndHeights),
-        width: displayWidth,
-        material,
-        arcType: Cesium.ArcType.NONE,
-      },
-      description: `${fromCountry.name} → ${toCountry.name}<br/>` +
-        `Trade value: $${(flow.value / 1e9).toFixed(1)}B<br/>` +
-        `Route mode: ${routeLabel}<br/>` +
-        `Estimated transit: ${transitDays.toFixed(1)} days<br/>` +
-        `Route length: ${(route.totalDistanceKm / 1000).toFixed(1)}k km`,
-    });
+    const line = MeshBuilder.CreateLines(
+      `oil-lane-${flow.from}-${flow.to}`,
+      { points: positions },
+      scene,
+    );
+    line.color = new Color3(r / 255, g / 255, b / 255);
+    line.alpha = route.mode === "pipeline" ? 0.7 : 0.45;
+    line.isPickable = false;
+    line.metadata = {
+      from: fromCountry.name,
+      to: toCountry.name,
+      tradeValueUsd: flow.value,
+      routeMode: route.mode,
+      transitDays: route.totalCostHours / 24,
+      routeLengthKm: route.totalDistanceKm,
+    };
 
     lanes.push({
-      entity,
+      mesh: line,
       flow,
       mode: route.mode,
       totalCostHours: route.totalCostHours,

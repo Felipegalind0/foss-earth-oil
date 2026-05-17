@@ -3,10 +3,9 @@
 // oil-specific trade-flow visualizations on top of it.
 
 import { createGlobe } from "foss-earth";
-import type { GlobeLayer, GlobeLayerState } from "foss-earth";
-import { buildCullableSet, updateCulling } from "foss-earth/culling";
-import type { CullableSet } from "foss-earth/culling";
-import * as Cesium from "cesium";
+import { createBabylonLayer, createMeshCullable } from "foss-earth/layers";
+import type { BabylonLayerContext } from "foss-earth/layers";
+import type { AbstractMesh } from "@babylonjs/core";
 import "./style.css";
 
 // ─── Oil Data & Visualization Modules ───────────────────────────────
@@ -24,10 +23,17 @@ const apiKey = params.get("key");
 
 // ─── Create Globe ───────────────────────────────────────────────────
 const globe = await createGlobe({
+  container: "root",
   apiKey,
-  debugGestures: params.has("debug-gestures"),
 });
-const viewer = globe.viewer;
+
+globe.setViewState({
+  latDeg: 20,
+  lonDeg: 15,
+  headingDeg: 0,
+  pitchDeg: 72,
+  zoomMeters: 18_000_000,
+});
 
 // ─── Dataset Filtering ──────────────────────────────────────────────
 function filterFlows(datasetId: string): TradeFlow[] {
@@ -66,12 +72,11 @@ function filterFlows(datasetId: string): TradeFlow[] {
 }
 
 // ─── Oil Trade Layer (implements GlobeLayer) ────────────────────────
-let currentLaneEntities: Cesium.Entity[] = [];
-let currentCullSet: CullableSet | null = null;
-let cullTickListener: Cesium.Event.RemoveCallback | null = null;
+let layerContext: BabylonLayerContext | null = null;
+let currentLaneMeshes: AbstractMesh[] = [];
 let currentDatasetId = "all";
 let currentScenarioId: RouteScenarioId = "baseline";
-let sphereEntities: Cesium.Entity[] = [];
+let sphereMeshes: AbstractMesh[] = [];
 
 function updateScenarioDescription(): void {
   const scenario = ROUTE_SCENARIOS.find((item) => item.id === currentScenarioId);
@@ -86,37 +91,36 @@ function rebuildCurrentVisualization(): void {
 }
 
 function buildVisualization(flows: TradeFlow[]) {
-  for (const e of currentLaneEntities) viewer.entities.remove(e);
+  if (!layerContext) return;
 
-  const lanes = createSeaLanes(viewer, flows, currentScenarioId);
-  currentLaneEntities = lanes.map((l) => l.entity);
+  for (const mesh of currentLaneMeshes) mesh.dispose();
+
+  const lanes = createSeaLanes(layerContext.scene, flows, currentScenarioId);
+  currentLaneMeshes = lanes.map((lane) => lane.mesh);
   console.log(`Rendered ${lanes.length} trade lanes for scenario "${currentScenarioId}"`);
-
-  if (cullTickListener) cullTickListener();
-  currentCullSet = buildCullableSet(sphereEntities, lanes);
-  cullTickListener = viewer.clock.onTick.addEventListener(() =>
-    updateCulling(viewer, currentCullSet!),
-  );
 }
 
-const oilTradeLayer: GlobeLayer = {
+const oilTradeLayer = createBabylonLayer({
   id: "oil-trade",
-  setup(v: Cesium.Viewer): GlobeLayerState {
-    sphereEntities = createCountrySpheres(v);
+  setup(context) {
+    layerContext = context;
+    sphereMeshes = createCountrySpheres(context.scene);
     return {
-      poiEntities: sphereEntities,
+      pois: sphereMeshes.map((mesh) => ({
+        mesh,
+        getPosition: () => mesh.getAbsolutePosition(),
+      })),
+      cullables: sphereMeshes.map((mesh) => createMeshCullable(mesh)),
     };
   },
-  destroy(v: Cesium.Viewer): void {
-    for (const e of currentLaneEntities) v.entities.remove(e);
-    for (const e of sphereEntities) v.entities.remove(e);
-    if (cullTickListener) cullTickListener();
-    currentLaneEntities = [];
-    sphereEntities = [];
-    currentCullSet = null;
-    cullTickListener = null;
+  destroy(): void {
+    for (const mesh of currentLaneMeshes) mesh.dispose();
+    for (const mesh of sphereMeshes) mesh.dispose();
+    currentLaneMeshes = [];
+    sphereMeshes = [];
+    layerContext = null;
   },
-};
+});
 
 globe.addLayer(oilTradeLayer);
 
