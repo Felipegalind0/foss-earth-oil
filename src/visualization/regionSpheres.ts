@@ -9,9 +9,9 @@ import { totalExports, totalImports } from "../data/tradeFlows";
 import { type Region, REGIONS } from "../data/regions";
 
 /** Minimum marker radius in metres. Kept intentionally visible at whole-globe zoom. */
-const BASE_RADIUS = 160_000;
+const BASE_RADIUS = 16_000;
 /** Scaling factor for log(volume). */
-const LOG_SCALE = 70_000;
+const LOG_SCALE = 7_000;
 
 export function createCountrySpheres(
   scene: Scene,
